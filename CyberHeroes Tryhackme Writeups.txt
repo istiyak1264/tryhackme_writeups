@@ -1,0 +1,4 @@
+step1:
+    Start the machine and visit http://MACHINE_IP/login.html once it's up and running.
+
+step2: 
