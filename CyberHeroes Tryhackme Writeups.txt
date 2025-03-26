@@ -2,3 +2,56 @@ step1:
     Start the machine and visit http://MACHINE_IP/login.html once it's up and running.
 
 step2: 
+    After checking the source code of login.html, we found this:
+    <script>
+        function authenticate()
+        {
+            a = document.getElementById('uname')
+            b = document.getElementById('pass')
+            const RevereString = str => [...str].reverse().join('');
+            if (a.value=="h3ck3rBoi" & b.value==RevereString("54321@terceSrepuS"))
+            { 
+                var xhttp = new XMLHttpRequest();
+                xhttp.onreadystatechange = function()
+                {
+                    if (this.readyState == 4 && this.status == 200)
+                    {
+                        document.getElementById("flag").innerHTML = this.responseText ;
+                        document.getElementById("todel").innerHTML = "";
+                        document.getElementById("rm").remove() ;
+                    }
+                };
+                xhttp.open("GET", "RandomLo0o0o0o0o0o0o0o0o0o0gpath12345_Flag_"+a.value+"_"+b.value+".txt", true);
+                xhttp.send();
+            }
+            else
+            {
+                alert("Incorrect Password, try again.. you got this hacker !")
+            }
+        }
+    </script>
+
+step3:
+    observe the authentication checking function
+    a = document.getElementById('uname')
+    b = document.getElementById('pass')
+    const RevereString = str => [...str].reverse().join('');
+    if (a.value=="h3ck3rBoi" & b.value==RevereString("54321@terceSrepuS"))
+    {
+
+    }
+
+    Username: h3ck3rBoi
+    Reverse the string: 54321@terceSrepuS
+    We got password: SuperSecret@12345
+
+    Now try to login.
+
+step4:
+    Using the username h3ck3rBoi and password SuperSecret@12345,
+    we logged in successfully and obtained the flag.
+    flag: flag{edb0be5*************************}
+
+<!----------Author's message: Give it a try yourself. Happy hacking!----------->
+
+
